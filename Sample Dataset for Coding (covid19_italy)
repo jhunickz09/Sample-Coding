@@ -1,0 +1,66 @@
+--Combining the regional and national tables. Showing both regional and national total confirmed cases, and renaming columns as needed.
+
+
+SELECT 
+    R.date 
+    , R.region_code
+    , R.region_name 
+    , R.total_confirmed_cases AS regional_confirmed_cases
+    , N.total_confirmed_cases AS national_confirmed_cases
+FROM 
+    `bigquery-public-data.covid19_italy.data_by_region` R 
+INNER JOIN 
+    `bigquery-public-data.covid19_italy.national_trends` N 
+    ON R.date = N.date ;
+
+
+
+--Showing the contribution of each province to regional and national total cases for October 10,2021. Excluding any instances where there is no match in region. 
+
+
+SELECT 
+    P.date 
+    , P.province_name 
+    , P.province_code 
+    , R.region_code 
+    , R.region_name 
+    , P.confirmed_cases/N.total_confirmed_cases 
+        AS cases_pct 
+FROM 
+    `bigquery-public-data.covid19_italy.data_by_province` P 
+LEFT JOIN 
+    `bigquery-public-data.covid19_italy.national_trends` N
+    ON P.date = N.date
+INNER JOIN 
+    `bigquery-public-data.covid19_italy.data_by_region` R
+    ON P.date = R.date 
+    AND P.region_code = R.region_code 
+WHERE 
+    DATE(P.date) = DATE('2021-10-10')
+
+
+--Comparing the daily sum of new current cases of all regions to the national totals, using a subquery. 
+
+
+WITH region_agg AS (
+    SELECT 
+        R.date
+        , SUM(R.new_current_confirmed_cases) AS case_inc 
+    FROM 
+        `bigquery-public-data.covid19_italy.data_by_region` R
+    GROUP BY 
+        1
+)
+
+
+SELECT 
+    R.date 
+    , R.case_inc AS r_table_case_inc
+    , N.new_current_confirmed_cases AS n_table_case_inc
+    , R.case_inc - N.new_current_confirmed_cases AS diff 
+FROM 
+    region_agg R 
+LEFT JOIN 
+    `bigquery-public-data.covid19_italy.national_trends` N 
+    ON R.date = N.date ;
+
